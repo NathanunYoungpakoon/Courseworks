@@ -1,0 +1,78 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>EchoPlay</title>
+    <style>
+        body {
+            font-family: Arial, sans-serif;
+            display: flex;
+            flex-direction: column;
+            justify-content: center;
+            align-items: center;
+            min-height: 100vh;
+            margin: 0;
+            background-color: #f4f4f4;
+            color: #333;
+        }
+
+        h1 {
+            margin-bottom: 30px;
+            color: #0056b3;
+        }
+
+        .button-container {
+            display: flex;
+            flex-wrap: wrap;
+            gap: 15px;
+            justify-content: center;
+            max-width: 200px;
+            padding: 20px;
+            background-color: #fff;
+            border-radius: 8px;
+            box-shadow: 0 4px 8px rgba(0, 0, 0, 0.1);
+        }
+
+        .button {
+            display: inline-block;
+            padding: 12px 25px;
+            background-color: #007bff;
+            color: white;
+            text-decoration: none;
+            border-radius: 5px;
+            border: none;
+            cursor: pointer;
+            font-size: 16px;
+            font-weight: bold;
+            transition: background-color 0.3s ease, transform 0.2s ease;
+            min-width: 120px;
+            text-align: center;
+        }
+
+        .button:hover {
+            background-color: #0056b3;
+            transform: translateY(-2px);
+        }
+
+        .button:active {
+            background-color: #004085;
+            transform: translateY(0);
+        }
+    </style>
+</head>
+<body>
+
+    <h1>Welcome to EchoPlay</h1>
+
+    <div class="button-container">
+        <a href="/login" class="button">Login</a>
+        <a href="/signup" class="button">Sign Up</a>
+        <a href="/chat" class="button">Chat</a>
+        <a href="/support" class="button">Support</a>
+        <a href="/account" class="button">Account</a>
+        <a href="/chatlog" class="button">Chat Log</a>
+    </div>
+
+</body>
+</html>

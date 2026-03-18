@@ -1,0 +1,346 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Customer Support Chatbot</title>
+    <style>
+
+        body {
+            font-family: Arial, sans-serif;
+            margin: 0;
+            padding: 20px;
+            background-color: #f4f4f4;
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            min-height: 100vh;
+            box-sizing: border-box;
+        }
+
+        h1 {
+            color: #333;
+            margin-bottom: 20px;
+        }
+
+        #chat-container {
+            width: 100%;
+            max-width: 600px;
+            background-color: #fff;
+            border-radius: 8px;
+            box-shadow: 0 2px 10px rgba(0, 0, 0, 0.1);
+            display: flex;
+            flex-direction: column;
+            height: 70vh;
+            min-height: 400px;
+            box-sizing: border-box;
+        }
+
+        #messages {
+            flex-grow: 1;
+            padding: 20px;
+            overflow-y: auto;
+            border-bottom: 1px solid #eee;
+            scroll-behavior: smooth;
+        }
+
+        .message-row {
+            margin-bottom: 10px;
+            display: flex;
+            flex-direction: column;
+        }
+
+        .message-row.user {
+            align-items: flex-end;
+        }
+
+        .message-row.chatbot {
+            align-items: flex-start;
+        }
+
+        .message-email {
+            font-size: 0.8em;
+            color: #777;
+            margin-bottom: 5px;
+            padding: 0 10px;
+        }
+
+        .message-bubble {
+            max-width: 70%;
+            padding: 10px 15px;
+            border-radius: 20px;
+            word-wrap: break-word;
+            line-height: 1.4;
+            text-align: left;
+        }
+
+        .message-bubble.user {
+            background-color: #007bff;
+            color: white;
+            border-bottom-right-radius: 2px;
+        }
+
+        .message-bubble.chatbot {
+            background-color: #e2e6ea;
+            color: #333;
+            border-bottom-left-radius: 2px;
+        }
+
+        #input-area {
+            display: flex;
+            padding: 15px;
+            border-top: 1px solid #eee;
+        }
+
+        #user-message {
+            flex-grow: 1;
+            padding: 10px;
+            border: 1px solid #ddd;
+            border-radius: 20px;
+            margin-right: 10px;
+            font-size: 1em;
+            outline: none;
+        }
+
+        #user-message:focus {
+            border-color: #007bff;
+        }
+
+        #send-button {
+            padding: 10px 20px;
+            background-color: #007bff;
+            color: white;
+            border: none;
+            border-radius: 20px;
+            cursor: pointer;
+            font-size: 1em;
+            transition: background-color 0.2s;
+        }
+
+        #send-button:hover:not(:disabled) {
+            background-color: #0056b3;
+        }
+
+        #send-button:disabled {
+            background-color: #cccccc;
+            cursor: not-allowed;
+        }
+
+        #status-message {
+            text-align: center;
+            margin: 20px 0;
+            color: #888;
+            font-size: 0.9em;
+        }
+    </style>
+</head>
+<body>
+    <h1>Customer Support Chatbot</h1>
+    <div id="chat-container">
+        <div id="messages">
+            <!-- Initial status message, will be replaced by chat history -->
+            <p id="status-message">Connecting to chatbot...</p>
+        </div>
+        <div id="input-area">
+            <input type="text" id="user-message" placeholder="Type your message..." autocomplete="off" disabled>
+            <button id="send-button" disabled>Send</button>
+        </div>
+    </div>
+
+    <script>
+
+        let sessionId = null;
+        let email = null;
+        let pollingIntervalId = null;
+        const POLLING_INTERVAL = 5000;
+
+
+        const messagesDiv = document.getElementById('messages');
+        const userMessageInput = document.getElementById('user-message');
+        const sendButton = document.getElementById('send-button');
+        const statusMessageP = document.getElementById('status-message');
+
+        async function fetchChatData(method, url, data = null) {
+            try {
+                const options = {
+                    method: method,
+                    headers: {
+                        'Content-Type': 'application/json',
+                    }
+                };
+                if (data) {
+                    options.body = JSON.stringify(data);
+                }
+
+                const response = await fetch(url, options);
+
+                if (!response.ok) {
+
+                    const errorDetails = await response.text();
+                    throw new Error(`HTTP error! Status: ${response.status}, Details: ${errorDetails}`);
+                }
+                return await response.json();
+            } catch (error) {
+                console.error(`Error during ${method} ${url}:`, error);
+
+                if (statusMessageP) {
+                    statusMessageP.textContent = `Error: ${error.message}. Please refresh.`;
+                    statusMessageP.style.color = 'red';
+                }
+                throw error;
+            }
+        }
+
+        async function initChat() {
+            try {
+
+                userMessageInput.disabled = true;
+                sendButton.disabled = true;
+                if (statusMessageP) {
+                    statusMessageP.textContent = "Connecting to chatbot...";
+                    statusMessageP.style.color = '#888';
+                }
+
+                const initialData = await fetchChatData('GET', '/chat/init');
+                sessionId = initialData.session_id;
+                email = initialData.email;
+
+                console.log('Chat initialized:', { sessionId, email });
+
+
+                if (statusMessageP && messagesDiv.contains(statusMessageP)) {
+                    messagesDiv.removeChild(statusMessageP);
+                }
+
+
+                userMessageInput.disabled = false;
+                sendButton.disabled = false;
+                userMessageInput.focus();
+
+                startPolling();
+                updateConversation();
+            } catch (error) {
+                console.error('Failed to initialize chat:', error);
+
+                stopPolling();
+            }
+        }
+
+        async function updateConversation() {
+            if (!sessionId) {
+                console.warn('Cannot update conversation: session ID is not set.');
+                return;
+            }
+
+            try {
+                const conversation = await fetchChatData('GET', `/chat/${sessionId}`);
+                renderConversation(conversation);
+            } catch (error) {
+                console.error('Failed to fetch conversation history:', error);
+
+            }
+        }
+
+        function renderConversation(conversation) {
+            messagesDiv.innerHTML = '';
+
+            if (conversation.length === 0) {
+                 const p = document.createElement('p');
+                 p.textContent = "Say something to start the conversation!";
+                 p.style.textAlign = 'center';
+                 p.style.color = '#888';
+                 messagesDiv.appendChild(p);
+            }
+
+            conversation.forEach(msg => {
+                const messageRow = document.createElement('div');
+                messageRow.classList.add('message-row');
+
+
+                const isUserMessage = (msg.email === email);
+                messageRow.classList.add(isUserMessage ? 'user' : 'chatbot');
+
+
+                const emailSpan = document.createElement('div');
+                emailSpan.classList.add('message-email');
+                emailSpan.textContent = isUserMessage ? 'You' : msg.email;
+                messageRow.appendChild(emailSpan);
+
+
+                const messageBubble = document.createElement('div');
+                messageBubble.classList.add('message-bubble');
+                messageBubble.classList.add(isUserMessage ? 'user' : 'chatbot');
+                messageBubble.textContent = msg.message;
+                messageRow.appendChild(messageBubble);
+
+                messagesDiv.appendChild(messageRow);
+            });
+
+
+            messagesDiv.scrollTop = messagesDiv.scrollHeight;
+        }
+
+        async function sendMessage() {
+            if (!sessionId || !email) {
+                console.warn('Cannot send message: session ID or email is not set.');
+                return;
+            }
+
+            const messageText = userMessageInput.value.trim();
+            if (messageText === '') {
+                return;
+            }
+
+
+            userMessageInput.disabled = true;
+            sendButton.disabled = true;
+
+            try {
+                await fetchChatData('POST', `/chat/${sessionId}`, {
+                    email: email,
+                    message: messageText
+                });
+
+                userMessageInput.value = '';
+                await updateConversation();
+            } catch (error) {
+                console.error('Failed to send message:', error);
+
+            } finally {
+
+                userMessageInput.disabled = false;
+                sendButton.disabled = false;
+                userMessageInput.focus();
+            }
+        }
+
+        function startPolling() {
+            stopPolling();
+            pollingIntervalId = setInterval(updateConversation, POLLING_INTERVAL);
+            console.log(`Polling started: every ${POLLING_INTERVAL / 1000} seconds.`);
+        }
+
+        function stopPolling() {
+            if (pollingIntervalId) {
+                clearInterval(pollingIntervalId);
+                pollingIntervalId = null;
+                console.log('Polling stopped.');
+            }
+        }
+
+
+
+        document.addEventListener('DOMContentLoaded', initChat);
+
+
+        sendButton.addEventListener('click', sendMessage);
+
+
+        userMessageInput.addEventListener('keypress', (event) => {
+            if (event.key === 'Enter') {
+                sendMessage();
+            }
+        });
+    </script>
+</body>
+</html>

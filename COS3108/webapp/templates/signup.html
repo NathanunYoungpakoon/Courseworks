@@ -1,0 +1,155 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Sign Up</title>
+    <style>
+
+        body {
+            font-family: sans-serif;
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            min-height: 100vh;
+            margin: 0;
+            background-color: #f4f4f4;
+        }
+        .signup-container {
+            background-color: white;
+            padding: 30px;
+            border-radius: 8px;
+            box-shadow: 0 2px 10px rgba(0,0,0,0.1);
+            width: 300px;
+            text-align: center;
+        }
+        h2 {
+            color: #333;
+            margin-bottom: 25px;
+        }
+        form div {
+            margin-bottom: 15px;
+            text-align: left;
+        }
+        label {
+            display: block;
+            margin-bottom: 5px;
+            font-weight: bold;
+            color: #555;
+        }
+        input[type="text"],
+        input[type="password"] {
+            width: calc(100% - 22px);
+            padding: 10px;
+            border: 1px solid #ddd;
+            border-radius: 4px;
+            font-size: 16px;
+        }
+        button {
+            width: 100%;
+            padding: 10px;
+            background-color: #28a745;
+            color: white;
+            border: none;
+            border-radius: 4px;
+            cursor: pointer;
+            font-size: 16px;
+            margin-top: 10px;
+        }
+        button:hover {
+            background-color: #218838;
+        }
+        #message {
+            margin-top: 20px;
+            font-weight: bold;
+        }
+        .success {
+            color: green;
+        }
+        .error {
+            color: red;
+        }
+        #loginButton {
+            margin-top: 20px;
+            background-color: #007bff;
+        }
+        #loginButton:hover {
+            background-color: #0056b3;
+        }
+    </style>
+</head>
+<body>
+    <div class="signup-container">
+        <h2>Sign Up</h2>
+        <form id="signupForm" action="/signup" method="POST">
+            <div>
+                <label for="email">Email:</label>
+                <input type="text" id="email" name="email" required>
+            </div>
+            <div>
+                <label for="password">Password:</label>
+                <input type="password" id="password" name="password" required>
+            </div>
+            <div>
+                <label for="confirm_password">Confirm Password:</label>
+                <input type="password" id="confirm_password" name="confirm_password" required>
+            </div>
+            <button type="submit">Sign Up</button>
+        </form>
+        <div id="message"></div>
+        <button id="loginButton" style="display: none;" onclick="location.href='/login'">Go to Login</button>
+    </div>
+
+    <script>
+        document.getElementById('signupForm').addEventListener('submit', async function(event) {
+            event.preventDefault();
+
+            const form = event.target;
+            const messageDiv = document.getElementById('message');
+            const loginButton = document.getElementById('loginButton');
+
+            messageDiv.textContent = '';
+            messageDiv.className = '';
+            loginButton.style.display = 'none';
+
+            const email = form.email.value;
+            const password = form.password.value;
+            const confirmPassword = form.confirm_password.value;
+
+
+            if (password !== confirmPassword) {
+                messageDiv.textContent = 'Error: Passwords do not match.';
+                messageDiv.classList.add('error');
+                return;
+            }
+
+            try {
+
+                const response = await fetch(form.action, {
+                    method: 'POST',
+                    headers: {
+                        'Content-Type': 'application/json',
+                    },
+                    body: JSON.stringify({ email, password })
+                });
+
+                if (response.ok) {
+                    messageDiv.textContent = 'Sign-up successful!';
+                    messageDiv.classList.add('success');
+                    form.style.display = 'none';
+                    loginButton.style.display = 'block';
+                } else {
+
+                    const errorData = await response.json().catch(() => ({ message: 'An unexpected error occurred.' }));
+                    messageDiv.textContent = errorData.message || 'Sign-up failed: Please try again.';
+                    messageDiv.classList.add('error');
+                }
+            } catch (error) {
+                console.error('Network error or server unreachable:', error);
+                messageDiv.textContent = 'Sign-up failed: Could not connect to the server.';
+                messageDiv.classList.add('error');
+            }
+        });
+    </script>
+</body>
+</html>

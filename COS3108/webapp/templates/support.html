@@ -1,0 +1,285 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Support Message Reply</title>
+    <style>
+        body {
+            font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helvetica, Arial, sans-serif;
+            background-color: #f4f4f9;
+            margin: 0;
+            padding: 20px;
+            color: #333;
+        }
+
+        h1 {
+            color: #444;
+            text-align: center;
+        }
+
+        #message-list {
+            max-width: 800px;
+            margin: 20px auto;
+            padding: 0;
+            list-style: none;
+        }
+
+        .message-item {
+            background-color: #fff;
+            border: 1px solid #ddd;
+            border-radius: 5px;
+            padding: 15px;
+            margin-bottom: 10px;
+            cursor: pointer;
+            transition: background-color 0.3s ease;
+        }
+
+        .message-item:hover {
+            background-color: #f0f0f0;
+        }
+
+        .message-item.replied {
+            background-color: #e6ffed;
+            border-left: 5px solid #4caf50;
+        }
+
+        .message-item .email {
+            font-weight: bold;
+            color: #007bff;
+            display: block;
+            margin-bottom: 5px;
+        }
+
+        .message-item .message-preview {
+            color: #555;
+            white-space: nowrap;
+            overflow: hidden;
+            text-overflow: ellipsis;
+        }
+
+
+        .modal-overlay {
+            display: none;
+            position: fixed;
+            z-index: 1000;
+            left: 0;
+            top: 0;
+            width: 100%;
+            height: 100%;
+            overflow: auto;
+            background-color: rgba(0, 0, 0, 0.5);
+        }
+
+        .modal-content {
+            background-color: #fefefe;
+            margin: 10% auto;
+            padding: 20px;
+            border: 1px solid #888;
+            border-radius: 8px;
+            width: 80%;
+            max-width: 500px;
+            position: relative;
+        }
+        
+        .modal-content h3 {
+            margin-top: 0;
+            color: #007bff;
+        }
+
+        .modal-content p {
+            background-color: #f9f9f9;
+            padding: 10px;
+            border-radius: 4px;
+            border: 1px solid #eee;
+            white-space: pre-wrap;
+        }
+        
+        #modal-previous-reply-container {
+            margin-top: 15px;
+        }
+
+        #modal-previous-reply-container h4 {
+            margin-top: 0;
+            margin-bottom: 5px;
+            color: #555;
+            font-size: 0.9em;
+            font-weight: normal;
+        }
+
+        #modal-previous-reply {
+            background-color: #e6ffed;
+            padding: 10px;
+            border-radius: 4px;
+            border: 1px solid #c3e6cb;
+            color: #155724;
+            white-space: pre-wrap;
+            margin: 0;
+        }
+
+        #reply-textarea {
+            width: 100%;
+            box-sizing: border-box;
+            padding: 10px;
+            min-height: 80px;
+            margin-top: 15px;
+            border: 1px solid #ccc;
+            border-radius: 4px;
+            font-size: 1em;
+        }
+
+        #send-button {
+            background-color: #28a745;
+            color: white;
+            padding: 10px 15px;
+            border: none;
+            border-radius: 5px;
+            cursor: pointer;
+            float: right;
+            margin-top: 10px;
+            font-size: 1em;
+        }
+
+        #send-button:hover {
+            background-color: #218838;
+        }
+
+    </style>
+</head>
+<body>
+
+    <h1>Support Messages</h1>
+    <div id="message-list">
+    </div>
+
+    <div id="reply-modal" class="modal-overlay">
+        <div class="modal-content">
+            <h3 id="modal-email"></h3>
+            <p id="modal-message"></p>
+
+            <div id="modal-previous-reply-container" style="display: none;">
+                <h4>Previous Reply:</h4>
+                <p id="modal-previous-reply"></p>
+            </div>
+
+            <textarea id="reply-textarea" placeholder="Type your reply here..."></textarea>
+            <button id="send-button">Send</button>
+        </div>
+    </div>
+
+    <script>
+        const messageListEl = document.getElementById('message-list');
+        const modalEl = document.getElementById('reply-modal');
+        const modalemailEl = document.getElementById('modal-email');
+        const modalMessageEl = document.getElementById('modal-message');
+        const replyTextareaEl = document.getElementById('reply-textarea');
+        const sendButtonEl = document.getElementById('send-button');
+        const modalPreviousReplyContainerEl = document.getElementById('modal-previous-reply-container');
+        const modalPreviousReplyEl = document.getElementById('modal-previous-reply');
+
+        let currentMessageId = null;
+
+        async function fetchAndRenderMessages() {
+            try {
+                const response = await fetch('/support/list');
+                if (!response.ok) throw new Error('Network response was not ok');
+                const messages = await response.json();
+
+                messageListEl.innerHTML = '';
+
+                messages.forEach(msg => {
+                    const item = document.createElement('div');
+                    item.className = 'message-item';
+                    item.dataset.id = msg.id;
+
+                    if (msg.reply) {
+                        item.classList.add('replied');
+                    }
+
+                    item.innerHTML = `
+                        <span class="email">${msg.email}</span>
+                        <div class="message-preview">${msg.message}</div>
+                    `;
+                    
+                    item.addEventListener('click', () => openReplyModal(msg));
+                    messageListEl.appendChild(item);
+                });
+            } catch (error) {
+                console.error('Failed to fetch messages:', error);
+                messageListEl.innerHTML = '<p style="color: red; text-align: center;">Could not load messages.</p>';
+            }
+        }
+
+        function openReplyModal(message) {
+            currentMessageId = message.id;
+            modalemailEl.textContent = message.email;
+            modalMessageEl.textContent = message.message;
+
+
+            if (message.reply) {
+                modalPreviousReplyEl.textContent = message.reply;
+                modalPreviousReplyContainerEl.style.display = 'block';
+
+                replyTextareaEl.value = message.reply;
+            } else {
+                modalPreviousReplyContainerEl.style.display = 'none';
+                replyTextareaEl.value = '';
+            }
+
+            modalEl.style.display = 'block';
+            replyTextareaEl.focus();
+        }
+
+        function closeReplyModal() {
+            modalEl.style.display = 'none';
+            currentMessageId = null;
+        }
+
+        async function sendReply() {
+            const replyText = replyTextareaEl.value.trim();
+            if (!replyText || !currentMessageId) {
+                return;
+            }
+
+            try {
+                const response = await fetch('/support/list', {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({ id: currentMessageId, reply: replyText })
+                });
+
+                if (!response.ok) throw new Error('Failed to send reply');
+
+                closeReplyModal();
+                fetchAndRenderMessages();
+
+            } catch (error) {
+                console.error('Error sending reply:', error);
+                alert('Could not send reply. Please try again.');
+            }
+        }
+
+
+        sendButtonEl.addEventListener('click', sendReply);
+
+        replyTextareaEl.addEventListener('keydown', (event) => {
+            if (event.key === 'Enter' && !event.shiftKey) {
+                event.preventDefault();
+                sendReply();
+            }
+        });
+
+        modalEl.addEventListener('click', (event) => {
+            if (event.target === modalEl) {
+                closeReplyModal();
+            }
+        });
+
+
+        document.addEventListener('DOMContentLoaded', () => {
+            fetchAndRenderMessages();
+            setInterval(fetchAndRenderMessages, 5000);
+        });
+    </script>
+</body>
+</html>

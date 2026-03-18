@@ -1,0 +1,134 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Login</title>
+    <style>
+
+        body {
+            font-family: sans-serif;
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            min-height: 100vh;
+            margin: 0;
+            background-color: #f4f4f4;
+        }
+        .login-container {
+            background-color: white;
+            padding: 30px;
+            border-radius: 8px;
+            box-shadow: 0 2px 10px rgba(0,0,0,0.1);
+            width: 300px;
+            text-align: center;
+        }
+        h2 {
+            color: #333;
+            margin-bottom: 25px;
+        }
+        form div {
+            margin-bottom: 15px;
+            text-align: left;
+        }
+        label {
+            display: block;
+            margin-bottom: 5px;
+            font-weight: bold;
+            color: #555;
+        }
+        input[type="text"],
+        input[type="password"] {
+            width: calc(100% - 22px);
+            padding: 10px;
+            border: 1px solid #ddd;
+            border-radius: 4px;
+            font-size: 16px;
+        }
+        button {
+            width: 100%;
+            padding: 10px;
+            background-color: #007bff;
+            color: white;
+            border: none;
+            border-radius: 4px;
+            cursor: pointer;
+            font-size: 16px;
+            margin-top: 10px;
+        }
+        button:hover {
+            background-color: #0056b3;
+        }
+        #message {
+            margin-top: 20px;
+            font-weight: bold;
+        }
+        .success {
+            color: green;
+        }
+        .error {
+            color: red;
+        }
+    </style>
+</head>
+<body>
+    <div class="login-container">
+        <h2>Login</h2>
+        <form id="loginForm" action="/login" method="POST">
+            <div>
+                <label for="email">Email:</label>
+                <input type="text" id="email" name="email" required>
+            </div>
+            <div>
+                <label for="password">Password:</label>
+                <input type="password" id="password" name="password" required>
+            </div>
+            <button type="submit">Login</button>
+        </form>
+        <div id="message"></div>
+    </div>
+
+    <script>
+        document.getElementById('loginForm').addEventListener('submit', async function(event) {
+            event.preventDefault();
+
+            const form = event.target;
+            const messageDiv = document.getElementById('message');
+            messageDiv.textContent = '';
+            messageDiv.className = '';
+
+            const email = form.email.value;
+            const password = form.password.value;
+
+            try {
+
+                const response = await fetch(form.action, {
+                    method: 'POST',
+                    headers: {
+                        'Content-Type': 'application/json',
+                    },
+                    body: JSON.stringify({ email, password })
+                });
+
+                if (response.ok) {
+                    messageDiv.textContent = 'Login successful! Redirecting...';
+                    messageDiv.classList.add('success');
+
+                    setTimeout(() => {
+                        window.location.href = '/';
+                    }, 1500); 
+                } else {
+
+                    const errorData = await response.json().catch(() => ({ message: 'An unexpected error occurred.' }));
+                    messageDiv.textContent = errorData.message || 'Login failed: Invalid credentials.';
+                    messageDiv.classList.add('error');
+                }
+            } catch (error) {
+                console.error('Network error or server unreachable:', error);
+                messageDiv.textContent = 'Login failed: Could not connect to the server.';
+                messageDiv.classList.add('error');
+            }
+        });
+    </script>
+</body>
+</html>

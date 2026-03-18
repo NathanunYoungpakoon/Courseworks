@@ -1,0 +1,271 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Chatlog Viewer</title>
+    <style>
+        body {
+            font-family: Arial, sans-serif;
+            margin: 20px;
+            background-color: #f4f7f6;
+            color: #333;
+        }
+
+        .container {
+            max-width: 800px;
+            margin: 0 auto;
+            background-color: #fff;
+            padding: 20px;
+            border-radius: 8px;
+            box-shadow: 0 2px 10px rgba(0, 0, 0, 0.1);
+        }
+
+        h1 {
+            color: #2c3e50;
+            text-align: center;
+            margin-bottom: 25px;
+        }
+
+        .session {
+            border: 1px solid #e0e0e0;
+            border-radius: 6px;
+            margin-bottom: 20px;
+            background-color: #fdfdfd;
+            overflow: hidden;
+        }
+
+        .session-header {
+            background-color: #eaf2f8;
+            padding: 10px 15px;
+            font-weight: bold;
+            color: #2980b9;
+            border-bottom: 1px solid #d0e0eb;
+        }
+
+        .message {
+            padding: 10px 15px;
+            border-bottom: 1px solid #eee;
+            display: flex;
+            flex-wrap: wrap;
+            align-items: flex-start;
+        }
+
+        .message:last-child {
+            border-bottom: none;
+        }
+
+        .message-header {
+            flex: 0 0 100%;
+            margin-bottom: 5px;
+        }
+
+        .message-email {
+            font-weight: bold;
+            color: #34495e;
+            margin-right: 8px;
+        }
+
+        .message-datetime {
+            color: #7f8c8d;
+            font-size: 0.85em;
+        }
+
+        .message-content {
+            flex-grow: 1;
+            line-height: 1.5;
+            word-break: break-word;
+        }
+
+        .message-actions {
+            margin-left: 10px;
+            white-space: nowrap;
+        }
+
+        .toggle-message-button {
+            background: none;
+            border: none;
+            color: #3498db;
+            cursor: pointer;
+            text-decoration: underline;
+            padding: 0;
+            font-size: 0.9em;
+            margin-left: 5px;
+        }
+
+        .toggle-message-button:hover {
+            color: #2980b9;
+        }
+
+        .loading-indicator {
+            text-align: center;
+            padding: 20px;
+            font-style: italic;
+            color: #7f8c8d;
+        }
+
+        .error-message {
+            text-align: center;
+            padding: 20px;
+            color: #e74c3c;
+            font-weight: bold;
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <h1>Chatlog Viewer</h1>
+        <div id="chatlog-container">
+            <div class="loading-indicator">Loading chatlog...</div>
+        </div>
+    </div>
+
+    <script>
+        const API_URL = '/chat/log';
+        const POLL_INTERVAL = 5000;
+        const MAX_MESSAGE_LENGTH = 200;
+
+        const chatlogContainer = document.getElementById('chatlog-container');
+
+
+        let expandedMessages = {};
+
+        function formatTimestamp(timestamp) {
+            const date = new Date(timestamp * 1000);
+            const year = date.getFullYear();
+            const month = String(date.getMonth() + 1).padStart(2, '0');
+            const day = String(date.getDate()).padStart(2, '0');
+            const hours = String(date.getHours()).padStart(2, '0');
+            const minutes = String(date.getMinutes()).padStart(2, '0');
+            const seconds = String(date.getSeconds()).padStart(2, '0');
+            return `${year}-${month}-${day} ${hours}:${minutes}:${seconds}`;
+        }
+
+        function toggleMessage(messageContentElement, fullText, trimmedText, messageId, buttonElement) {
+            if (expandedMessages[messageId]) {
+                messageContentElement.textContent = trimmedText + '...';
+                buttonElement.textContent = 'Expand';
+                expandedMessages[messageId] = false;
+            } else {
+                messageContentElement.textContent = fullText;
+                buttonElement.textContent = 'Shrink';
+                expandedMessages[messageId] = true;
+            }
+        }
+
+        function renderChatLog(chatlogData) {
+
+            const sessions = {};
+            chatlogData.forEach(message => {
+                if (!sessions[message.session_id]) {
+                    sessions[message.session_id] = [];
+                }
+                sessions[message.session_id].push(message);
+            });
+
+
+            chatlogContainer.innerHTML = '';
+
+            const sortedSessionIds = Object.keys(sessions).sort((a, b) => parseInt(a) - parseInt(b));
+
+            if (sortedSessionIds.length === 0) {
+                chatlogContainer.innerHTML = '<div class="loading-indicator">No chat messages yet.</div>';
+                return;
+            }
+
+            sortedSessionIds.forEach(sessionId => {
+                const sessionDiv = document.createElement('div');
+                sessionDiv.className = 'session';
+
+                const sessionHeader = document.createElement('div');
+                sessionHeader.className = 'session-header';
+                sessionHeader.textContent = `Session ID: ${sessionId}`;
+                sessionDiv.appendChild(sessionHeader);
+
+
+                const messagesInSession = sessions[sessionId].sort((a, b) => a.log_number - b.log_number);
+
+                messagesInSession.forEach(messageData => {
+                    const messageDiv = document.createElement('div');
+                    messageDiv.className = 'message';
+
+                    const messageHeaderDiv = document.createElement('div');
+                    messageHeaderDiv.className = 'message-header';
+
+                    const emailSpan = document.createElement('span');
+                    emailSpan.className = 'message-email';
+                    emailSpan.textContent = messageData.email;
+                    messageHeaderDiv.appendChild(emailSpan);
+
+                    const datetimeSpan = document.createElement('span');
+                    datetimeSpan.className = 'message-datetime';
+                    datetimeSpan.textContent = formatTimestamp(messageData.datetime);
+                    messageHeaderDiv.appendChild(datetimeSpan);
+
+                    messageDiv.appendChild(messageHeaderDiv);
+
+                    const messageContentDiv = document.createElement('div');
+                    messageContentDiv.className = 'message-content';
+
+                    const fullMessageText = messageData.message;
+                    const messageId = `${messageData.session_id}-${messageData.log_number}`;
+
+                    if (fullMessageText.length > MAX_MESSAGE_LENGTH) {
+                        const trimmedMessageText = fullMessageText.substring(0, MAX_MESSAGE_LENGTH);
+                        messageContentDiv.textContent = (expandedMessages[messageId] ? fullMessageText : trimmedMessageText + '...');
+
+                        const messageActionsDiv = document.createElement('div');
+                        messageActionsDiv.className = 'message-actions';
+
+                        const toggleButton = document.createElement('button');
+                        toggleButton.className = 'toggle-message-button';
+                        toggleButton.textContent = expandedMessages[messageId] ? 'Shrink' : 'Expand';
+                        toggleButton.onclick = () => toggleMessage(
+                            messageContentDiv,
+                            fullMessageText,
+                            trimmedMessageText,
+                            messageId,
+                            toggleButton
+                        );
+                        messageActionsDiv.appendChild(toggleButton);
+                        messageDiv.appendChild(messageContentDiv);
+                        messageDiv.appendChild(messageActionsDiv);
+                    } else {
+                        messageContentDiv.textContent = fullMessageText;
+                        messageDiv.appendChild(messageContentDiv);
+                    }
+
+                    sessionDiv.appendChild(messageDiv);
+                });
+
+                chatlogContainer.appendChild(sessionDiv);
+            });
+        }
+
+        async function fetchChatLog() {
+            try {
+
+                if (!chatlogContainer.querySelector('.loading-indicator') && !chatlogContainer.querySelector('.error-message')) {
+                    chatlogContainer.innerHTML = '<div class="loading-indicator">Updating chatlog...</div>';
+                }
+
+                const response = await fetch(API_URL);
+                if (!response.ok) {
+                    throw new Error(`HTTP error! status: ${response.status}`);
+                }
+                const data = await response.json();
+                renderChatLog(data);
+            } catch (error) {
+                console.error('Failed to fetch chat log:', error);
+                chatlogContainer.innerHTML = '<div class="error-message">Failed to load chatlog. Retrying in ' + (POLL_INTERVAL / 1000) + ' seconds.</div>';
+            }
+        }
+
+
+        document.addEventListener('DOMContentLoaded', fetchChatLog);
+
+
+        setInterval(fetchChatLog, POLL_INTERVAL);
+    </script>
+</body>
+</html>
