@@ -1,4 +1,4 @@
-*This repository contains notable courseworks and projects from various computer science courses.*
+*This repository contains notable assignments and projects from various computer science courses.*
 
 ---
 
